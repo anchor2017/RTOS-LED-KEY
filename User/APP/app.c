@@ -43,6 +43,7 @@
 *                                            LOCAL DEFINES
 *********************************************************************************************************
 */
+//OS_FLAG_GRP flag_grp;
 
 /*
 *********************************************************************************************************
@@ -54,7 +55,7 @@ static  OS_TCB   AppTaskStartTCB;
 
 static  OS_TCB   AppTaskLed1TCB;
 static  OS_TCB   AppTaskLed2TCB;
-static  OS_TCB   AppTaskLed3TCB;
+static  OS_TCB   AppTaskPostTCB;
 
 
 /*
@@ -67,7 +68,7 @@ static  CPU_STK  AppTaskStartStk[APP_TASK_START_STK_SIZE];
 
 static  CPU_STK  AppTaskLed1Stk [ APP_TASK_LED1_STK_SIZE ];
 static  CPU_STK  AppTaskLed2Stk [ APP_TASK_LED2_STK_SIZE ];
-static  CPU_STK  AppTaskLed3Stk [ APP_TASK_LED3_STK_SIZE ];
+static  CPU_STK  AppTaskPostStk [ APP_TASK_POST_STK_SIZE ];
 
 
 /*
@@ -80,7 +81,7 @@ static  void  AppTaskStart  (void *p_arg);
 
 static  void  AppTaskLed1  ( void * p_arg );
 static  void  AppTaskLed2  ( void * p_arg );
-static  void  AppTaskLed3  ( void * p_arg );
+static  void  AppTaskPost  ( void * p_arg );
 
 
 /*
@@ -190,26 +191,26 @@ static  void  AppTaskStart (void *p_arg)
                  (OS_TICK     ) 0u,
                  (void       *) 0,
                  (OS_OPT      )(OS_OPT_TASK_STK_CHK | OS_OPT_TASK_STK_CLR),
-                 (OS_ERR     *)&err);
+                 (OS_ERR     *)&err);								 						  
 
-    OSTaskCreate((OS_TCB     *)&AppTaskLed3TCB,                /* Create the Led3 task                                */
-                 (CPU_CHAR   *)"App Task Led3",
-                 (OS_TASK_PTR ) AppTaskLed3,
-                 (void       *) 0,
-                 (OS_PRIO     ) APP_TASK_LED3_PRIO,
-                 (CPU_STK    *)&AppTaskLed3Stk[0],
-                 (CPU_STK_SIZE) APP_TASK_LED3_STK_SIZE / 10,
-                 (CPU_STK_SIZE) APP_TASK_LED3_STK_SIZE,
-                 (OS_MSG_QTY  ) 5u,
-                 (OS_TICK     ) 0u,
-                 (void       *) 0,
-                 (OS_OPT      )(OS_OPT_TASK_STK_CHK | OS_OPT_TASK_STK_CLR),
-                 (OS_ERR     *)&err);
-		
+		/* 创建 AppTaskPost 任务 */
+    OSTaskCreate((OS_TCB     *)&AppTaskPostTCB,                             //任务控制块地址
+                 (CPU_CHAR   *)"App Task Post",                             //任务名称
+                 (OS_TASK_PTR ) AppTaskPost,                                //任务函数
+                 (void       *) 0,                                          //传递给任务函数（形参p_arg）的实参
+                 (OS_PRIO     ) APP_TASK_POST_PRIO,                         //任务的优先级
+                 (CPU_STK    *)&AppTaskPostStk[0],                          //任务堆栈的基地址
+                 (CPU_STK_SIZE) APP_TASK_POST_STK_SIZE / 10,                //任务堆栈空间剩下1/10时限制其增长
+                 (CPU_STK_SIZE) APP_TASK_POST_STK_SIZE,                     //任务堆栈空间（单位：sizeof(CPU_STK)）
+                 (OS_MSG_QTY  ) 5u,                                         //任务可接收的最大消息数
+                 (OS_TICK     ) 0u,                                         //任务的时间片节拍数（0表默认值OSCfg_TickRate_Hz/10）
+                 (void       *) 0,                                          //任务扩展（0表不扩展）
+                 (OS_OPT      )(OS_OPT_TASK_STK_CHK | OS_OPT_TASK_STK_CLR), //任务选项
+                 (OS_ERR     *)&err);                                       //返回错误类型
+								 
 		
 		OSTaskDel ( & AppTaskStartTCB, & err );
-		
-		
+				
 }
 
 
@@ -229,7 +230,7 @@ static  void  AppTaskLed1 ( void * p_arg )
 
     while (DEF_TRUE) {                                          /* Task body, always written as an infinite loop.       */
 			macLED1_TOGGLE ();
-			OSTimeDly ( 1000, OS_OPT_TIME_DLY, & err );
+			OSTimeDly ( 500, OS_OPT_TIME_DLY, & err );
     }
 		
 		
@@ -252,7 +253,7 @@ static  void  AppTaskLed2 ( void * p_arg )
 
     while (DEF_TRUE) {                                          /* Task body, always written as an infinite loop.       */
 			macLED2_TOGGLE ();
-			OSTimeDly ( 5000, OS_OPT_TIME_DLY, & err );
+			OSTimeDly ( 1000, OS_OPT_TIME_DLY, & err );
     }
 		
 		
@@ -261,24 +262,27 @@ static  void  AppTaskLed2 ( void * p_arg )
 
 /*
 *********************************************************************************************************
-*                                          LED3 TASK
+*                                          POST TASK
 *********************************************************************************************************
 */
-
-static  void  AppTaskLed3 ( void * p_arg )
+static  void  AppTaskPost ( void * p_arg )
 {
-    OS_ERR      err;
+	OS_ERR      err;
 
-
-   (void)p_arg;
-
-
-    while (DEF_TRUE) {                                          /* Task body, always written as an infinite loop.       */
-			macLED3_TOGGLE ();
-			OSTimeDly ( 10000, OS_OPT_TIME_DLY, & err );
-    }
+	
+	(void)p_arg;
+					 
+	while (DEF_TRUE) {                                                     //任务体	
+		if( Key_ReadStatus ( macKEY2_GPIO_PORT, macKEY2_GPIO_PIN, 0 ) == 1 ) //如果KEY2被按下
+		{					
+			OSTaskDel(&AppTaskLed1TCB, &err);
+		}
 		
+		OSTimeDlyHMSM ( 0, 0, 0, 20, OS_OPT_TIME_DLY, & err );  //每20ms扫描一次
 		
+	}
+
 }
+
 
 
